@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>USA Crime Data Visualization</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			background-color:rgba(86, 33, 231, 0.2);
+			margin: 0;
+			padding: 0;
+		}
+
+		.container {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: center;
+			align-items: center;
+			height: 100vh;
+			padding: 50px;
+		}
+
+		.card {
+			background-color: #fff;
+			border-radius: 10px;
+			box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+			margin: 20px;
+			padding: 30px;
+			width: 300px;
+			height: 200px;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			cursor: pointer;
+			transition: all 0.3s ease;
+		}
+
+		.card:hover {
+			transform: translateY(-5px);
+			box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+		}
+
+		.card h2 {
+			margin: 0;
+			font-size: 24px;
+			font-weight: bold;
+			color: #333;
+			text-align: center;
+			text-shadow: 1px 1px #ccc;
+		}
+
+		.card p {
+			margin: 10px 0 0;
+			font-size: 18px;
+			color: #666;
+			text-align: center;
+		}
+
+		.card a {
+			color: #fff;
+			background-color: #2980b9;
+			padding: 10px 20px;
+			border-radius: 5px;
+			text-decoration: none;
+			margin-top: 20px;
+			display: block;
+			text-align: center;
+			transition: all 0.3s ease;
+		}
+
+		.card a:hover {
+			background-color: #1c6389;
+		}
+
+		.heading {
+			font-size: 48px;
+			font-weight: bold;
+			color: #333;
+			text-align: center;
+			margin-top: 50px;
+			margin-bottom: 30px;
+			text-shadow: 2px 2px #ccc;
+		}
+	</style>
+</head>
+<body>
+	<h1 class="heading">USA Crime Data Visualization</h1>
+	<div class="container">
+		<div class="card" onclick="window.location.href='maptest.html'">
+			<h2>ChoroplethMap</h2>
+			<p>Choropleth map of crime rates in the United States. The code uses D3.js library to visualize the data and a slider to enable the user to interact with the map and select a year. The map is split into two sections, one for violent crime rates and one for non-violent crime rates.</p>
+			<a href="maptest.html">Go to ChoroplethMap</a>
+		</div>
+		<div class="card" onclick="window.location.href='bubbleChart.html'">
+			<h2>Bubble Chart</h2>
+			<p>Chart is to display the relationship between the total crime and population of each state in the USA over time. The user can interact with the chart by sliding a year range input, updating the chart to show the data for the selected year.</p>
+			<a href="bubbleChart.html">Go to Bubble Chart</a>
+		</div>
+	</div>
+</body>
+</html>

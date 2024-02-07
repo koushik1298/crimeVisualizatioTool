@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Line Graph for Three States</title>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <style>
+    body {
+  font-family: 'Open Sans', sans-serif;
+  background-color: #f5f5f5;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.line {
+  fill: none;
+  stroke: #9c9c9c;
+  stroke-width: 2px;
+}
+
+.dot {
+  fill: #9c9c9c;
+  stroke: #fff;
+  stroke-width: 2px;
+}
+
+.tooltip {
+  position: absolute;
+  text-align: left;
+  padding: 5px;
+  font-size: 12px;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+/* Add a hover effect to the data points */
+.circle:hover {
+  r: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #9c9c9c;
+  stroke-width: 2px;
+}
+
+.axis text {
+  font-size: 14px;
+}
+
+.legend {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.legend rect {
+  fill: #9c9c9c;
+  stroke: #fff;
+  stroke-width: 2px;
+}
+
+.legend text {
+  fill: #171616;
+
+}
+
+    </style>
+  </head>
+  <body>
+    <h1>Line Graph for Selected States</h1>
+    <script>
+     var margin = {top: 20, right: 20, bottom: 30, left: 50},
+    width = 1200 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var x = d3.scaleLinear().range([0, width-100]);
+var y = d3.scaleLinear().range([height, 0]);
+
+var color = d3.scaleOrdinal(d3.schemeCategory10);
+
+var xAxis = d3.axisBottom(x);
+var yAxis = d3.axisLeft(y);
+
+var line = d3.line()
+    .x(function(d) { return x(d.year); })
+    .y(function(d) { return y(d.rate); });
+
+    var container = d3.select("body").append("div")
+    .style("position", "relative");
+
+// Add the SVG to the container div
+var svg = container.append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+d3.csv("state_crime.csv", function(d) {
+  return {
+    state: d.State,
+    year: +d.Year,
+    rate: (+d.Voilent_Rates || 0)+ (+d.Rates || 0),
+    population: +d["Data.Population"]
+  };
+}).then(function(data) {
+  var params = new URLSearchParams(window.location.search);
+// Get the encoded data from the "states" parameter
+var encodedStates = params.get("states");
+// Decode the data
+var selectedStates = JSON.parse(decodeURIComponent(encodedStates));
+// Use the decoded data to draw the line graph
+console.log(selectedStates);
+  const uniqueStates = [...new Set(selectedStates)];
+  console.log(uniqueStates);
+  // Filter data for the selected states
+  var filteredData = data.filter(function(d) {
+    console.log(d.state);
+    return uniqueStates.includes(d.state);
+  });
+  console.log(filteredData);
+  
+  // Nest the filtered data by state
+  var dataByState = d3.nest()
+      .key(function(d) { return d.state; })
+      .entries(filteredData);
+
+  // Set the domain of the x and y scales
+  x.domain(d3.extent(filteredData, function(d) { return d.year; }));
+  y.domain([
+    d3.min(dataByState, function(c) { return d3.min(c.values, function(d) { return d.rate; }); }),
+    d3.max(dataByState, function(c) { return d3.max(c.values, function(d) { return d.rate; }); })
+  ]);
+
+  // Define line function
+  var line = d3.line()
+      .x(function(d) { return x(d.year); })
+      .y(function(d) { return y(d.rate); });
+
+  // Define color scale
+  var color = d3.scaleOrdinal(d3.schemeCategory10);
+
+  // Draw the x and y axis
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text("Crime Rate");
+      var tooltip = d3.select("body")
+  .append("div")
+  .attr("class", "tooltip")
+  .style("opacity", 0);
+
+
+  var state = svg.selectAll(".state")
+      .data(dataByState)
+    .enter().append("g")
+      .attr("class", "state");
+
+      state.append("path")
+      .attr("class", "line")
+      .attr("d", function(d) { return line(d.values); })
+      .style("stroke", function(d) { return color(d.key); });
+
+      state.selectAll(".circle")
+  .data(function(d) { return d.values; })
+  .enter().append("circle")
+  .attr("class", "circle")
+  .attr("cx", function(d) { return x(d.year); })
+  .attr("cy", function(d) { return y(d.rate); })
+  .attr("r", 5)
+  .style("fill", function(d) { return color(d.state); })
+  .on("mouseover", function(d) {
+    tooltip.transition()
+      .duration(200)
+      .style("opacity", .9);
+    tooltip.html(d.state + "<br/>" + "Year: " + d.year + "<br/>" + "Crime Rate: " + d.rate)
+      .style("left", (d3.event.pageX + 5) + "px")
+      .style("top", (d3.event.pageY - 28) + "px");
+  })
+  .on("mouseout", function(d) {
+    tooltip.transition()
+      .duration(500)
+      .style("opacity", 0);
+  });
+
+
+  // Add a legend for the line graphs
+  var legend = svg.selectAll(".legend")
+      .data(color.domain())
+    .enter().append("g")
+      .attr("class", "legend")
+      .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+  legend.append("rect")
+      .attr("x", width - 110)
+      .attr("width", 18)
+      .attr("height", 18)
+      .style("fill", color);
+
+      legend.append("text")
+  .attr("x", width - 120)
+  .attr("y", 9)
+  .attr("dy", ".35em")
+  .style("text-anchor", "end")
+  .text(function(d) { return d; });
+
+
+// Add checkbox for each state to allow the user to toggle line graph visibility
+state.append("foreignObject")
+.attr("class", "checkbox")
+.attr("width", 40)
+.attr("height", 40)
+.attr("x", width -90)
+.attr("y", function(d) { return color.domain().indexOf(d.key) * 20 - 10; })
+.append("xhtml:body")
+.html("<form><input type='checkbox' checked></form>")
+.on("change", function(d) {
+var checkbox = d3.select(this).select("input");
+var isChecked = checkbox.property("checked");
+var statePath = d3.select(this.parentNode.parentNode).select(".line");
+var circles = d3.select(this.parentNode.parentNode).selectAll(".circle");
+statePath.style("opacity", isChecked ? 1 : 0);
+circles.style("opacity", isChecked ? 1 : 0);
+
+});
+
+// Save the selected states to local storage
+d3.select("#saveBtn").on("click", function() {
+var selectedStates = [];
+d3.selectAll(".checkbox").each(function(d) {
+var checkbox = d3.select(this).select("input");
+if (checkbox.property("checked")) {
+selectedStates.push(d.key);
+}
+});
+});
+
+// Load the selected states from local storage
+if (selectedStates) {
+d3.selectAll(".checkbox").each(function(d) {
+var checkbox = d3.select(this).select("input");
+checkbox.property("checked", selectedStates.includes(d.key));
+var statePath = d3.select(this.parentNode).select(".line");
+statePath.style("opacity", selectedStates.includes(d.key) ? 1 : 0);
+
+});
+}
+});
+
+// Define x and y scales
+var x = d3.scaleLinear().range([0, width-100]);
+var y = d3.scaleLinear().range([height, 0]);
+
+// Define x and y axis
+var xAxis = d3.axisBottom(x);
+var yAxis = d3.axisLeft(y);
+
+</script>
+  </body>
+</html>

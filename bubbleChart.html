@@ -1,0 +1,230 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Page Title</title>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <style>
+      #chart-container {
+        overflow-x: auto;
+      }
+      .slider-container {
+  width: 80%;
+  margin: 0 auto;
+}
+
+#yearSlider {
+  width: 100%;
+}
+
+#sliderLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.sliderLabel {
+  flex-basis: 0;
+  flex-grow: 1;
+  text-align: left;
+  padding-left: 0.5em;
+}
+
+@media screen and (max-width: 600px) {
+  .sliderLabel {
+    padding-left: 1em;
+    font-size: 0.8em;
+  }
+}
+
+@media screen and (max-width: 400px) {
+  .sliderLabel {
+    padding-left: 0.5em;
+    font-size: 0.7em;
+  }
+}
+    </style>
+  </head>
+  <body>
+   
+    <div id="chart-container">
+        <h1>Bubble Chart for Total Crime vs Population for the year: -<span id="year-value">1960</span></h1>
+        <div class="slider-container">
+          <input type="range" min="1960" max="2019" value="1960" id="yearSlider">
+          <div id="sliderLabels">
+            <span class="sliderLabel">1960</span>
+            <span class="sliderLabel">1970</span>
+            <span class="sliderLabel" >1980</span>
+            <span class="sliderLabel" >1990</span>
+            <span class="sliderLabel">2000</span>
+            <span class="sliderLabel">2010</span>
+          </div>
+        </div>
+      <svg id="chart"></svg>
+    </div>
+   
+    <script>
+      // set the dimensions and margins of the graph
+      var margin = {top: 400, right: 200, bottom: 200, left: 400},
+      width = 1500 - margin.left - margin.right,
+      height = 800 - margin.top - margin.bottom;
+      // append the svg object to the body of the page
+      var svg = d3.select("#chart")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+          .attr("transform",
+              "translate(" + margin.left + "," + margin.top + ")");
+      // load data and create chart
+      d3.csv("state_crime.csv", function(data) {
+          return {
+              year: +data.Year,
+              state: data.state_short,
+              state_full: data.State,
+              population: +data["Data.Population"],
+              totalCrime:  (+data["Data.Totals.Property.All"] || 0) + (+data["Data.Totals.Violent.All"] || 0),
+          };
+      }).then(function(data){
+                var yearSlider = document.getElementById("yearSlider");
+                var year_html  = document.getElementById("year-value");
+        yearSlider.addEventListener("input", function() {
+          var year = yearSlider.value;
+          updateChart(year);
+        });
+
+        console.log(data);
+        var simulation = d3.forceSimulation()
+    .force("x", d3.forceX().strength(0.05))
+    .force("y", d3.forceY().strength(0.05))
+    .force("collide", d3.forceCollide().radius(function(d) { return z(d.population)*2 + 2; }).iterations(2));
+        var color = d3.scaleOrdinal()
+  .domain(data.map(function(d) { return d.state; }))
+  .range(["#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00", "#ffff33", "#a65628", "#f781bf", "#999999", "#a6cee3", "#b2df8a", "#cab2d6", "#fdbf6f", "#fb9a99", "#b15928", "#ffffb3", "#6a3d9a", "#b2182b", "#33a02c", "#fb9a99", "#e31a1c", "#fdbf6f", "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928"]);
+  // Create a tooltip
+var tooltip = d3.select("#chart-container")
+.append("div")
+.style("opacity", 0)
+.attr("class", "tooltip")
+.style("background-color", "white")
+.style("border", "solid")
+.style("border-width", "2px")
+.style("border-radius", "5px")
+.style("padding", "5px");
+// Three function that change the tooltip when user hover / move / leave a cell
+var mouseover = function(d) {
+tooltip.style("opacity", 1);
+d3.select(this)
+.style("stroke", "black")
+.style("opacity", 1);
+};
+var mousemove = function(d) {
+tooltip.html("<b>" + d.state_full + "</b><br>" + "Population: " + d3.format(",")(d.population) + "<br>" + "Total Crime: " + d3.format(",")(d.totalCrime))
+.style("left", (d3.mouse(this)[0] + 30) + "px")
+.style("top", (d3.mouse(this)[1] + 30) + "px");
+};
+var mouseleave = function(d) {
+tooltip.style("opacity", 0);
+d3.select(this)
+.style("stroke", "none")
+.style("opacity", 0.8);
+};
+var x = d3.scaleLinear()
+    .domain([0, d3.max(data, function(d) { return d.totalCrime; })])
+    .range([0, width]);
+    var y = d3.scaleLinear()
+    .domain([0, d3.max(data, function(d) { return d.population; })])
+    .range([height, 0]);
+    var z = d3.scaleSqrt()
+    .domain([0, d3.max(data, function(d) { return d.population; })])
+    .range([0, 50]);
+// Add the bubbles
+var bubbles = svg.selectAll(".bubble")
+    .data(data.filter(function(d) { return d.year === 1960; }))
+    .enter()
+    .append("g")
+    .attr("class", "bubble-group");
+bubbles.append("circle")
+    .attr("class", "bubble")
+    .attr("r", function(d) { return z(d.population)*2; })
+    .style("fill", function(d) { return color(d.state); })
+    .on("mouseover", mouseover)
+    .on("mousemove", mousemove)
+    .on("mouseleave", mouseleave);
+bubbles.append("text")
+    .text(function(d) { return d.state; })
+    .attr("text-anchor", "middle")
+    .attr("alignment-baseline", "middle")
+    .style("font-size", "10px")
+    .style("pointer-events", "none")
+    .style("fill", "black");
+
+
+simulation.nodes(data.filter(function(d) { return d.year === 1960; }))
+    .on("tick", function() {
+        bubbles.select(".bubble")
+            .attr("cx", function(d) { return d.x; })
+            .attr("cy", function(d) { return d.y; });
+        bubbles.select("text")
+            .attr("x", function(d) { return d.x; })
+            .attr("y", function(d) { return d.y; });
+    });
+  // Filter the data to include only the selected year
+  function updateChart(year) {
+    year_html.textContent = year;
+    var filteredData = data.filter(function(d) {
+  return d.year == year;
+});
+console.log(filteredData);
+
+// Update the chart with the filtered data
+var bubbles = svg.selectAll(".bubble-group")
+  .data(filteredData);
+
+// Update existing bubbles
+bubbles.select(".bubble")
+  .attr("r", function(d) { return z(d.population)*2; })
+  .style("fill", function(d) { return color(d.state); });
+
+// Update text for existing bubbles
+bubbles.selectAll("text")
+  .text(function(d) { return d.state; })
+  .attr("x", function(d) { return d.x; })
+  .attr("y", function(d) { return d.y; });
+
+// Add new bubbles
+var bubbleGroups = bubbles.enter()
+  .append("g")
+  .attr("class", "bubble-group");
+
+bubbleGroups.append("circle")
+  .attr("class", "bubble")
+  .attr("r", function(d) { return z(d.population)*2; })
+  .style("fill", function(d) { return color(d.state); })
+  .on("mouseover", mouseover)
+  .on("mousemove", mousemove)
+  .on("mouseleave", mouseleave);
+
+// Add text for new bubbles
+bubbleGroups.append("text")
+  .text(function(d) { return d.state; })
+  .attr("text-anchor", "middle")
+  .attr("alignment-baseline", "middle")
+  .style("font-size", "10px")
+  .style("pointer-events", "none")
+  .style("fill", "black")
+  .attr("x", function(d) { return d.x; })
+  .attr("y", function(d) { return d.y; });
+
+// Remove bubbles that are no longer needed
+bubbles.exit().remove();
+
+// Restart the simulation with the new data
+simulation.nodes(filteredData);
+simulation.alpha(1).restart();
+
+}
+
+      });
+</script>
+</body>
+</html>

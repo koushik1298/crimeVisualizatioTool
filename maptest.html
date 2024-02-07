@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>US State Crime Rates</title>
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+</head>
+<style>
+  #map, #map_2 {
+  width: 50%; /* Set the width of each div to 50% */
+  height: 500px; /* Set the height of each div to 500px */
+  float: left; /* Float both divs to the left */
+}
+body {
+  font-family: 'Open Sans', sans-serif;
+}
+:root {
+  --primary-color: #2c3e50;
+  --secondary-color: #f39c12;
+}
+
+body {
+  background-color: #f5f5f5;
+  color: var(--primary-color);
+}
+
+h1, h2, h3 {
+  color: var(--secondary-color);
+}
+.container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.box {
+  background-color: #fff;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+}
+.button {
+  background-color: var(--primary-color);
+  color: #fff;
+  padding: 1rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.button:hover {
+  background-color: var(--secondary-color);
+}
+
+
+/* Clear the float after the two divs */
+div:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+ .state {
+        stroke: grey;
+        stroke-width: 1px;
+      }
+      .tooltip {
+      position: absolute;
+      text-align: center;
+      padding: 4px;
+      font: 12px sans-serif;
+      background: lightgrey;
+      border: 0px;
+      border-radius: 8px;
+      pointer-events: none;
+      opacity: 0;
+    }
+    .selected {
+  stroke: #000;
+  stroke-width: 2;
+}
+.slider-container {
+  width: 80%;
+  margin: 0 auto;
+}
+
+#yearSlider {
+  width: 100%;
+}
+
+#sliderLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.sliderLabel {
+  flex-basis: 0;
+  flex-grow: 1;
+  text-align: left;
+  padding-left: 2em;
+}
+
+@media screen and (max-width: 600px) {
+  .sliderLabel {
+    padding-left: 1em;
+    font-size: 0.8em;
+  }
+}
+
+@media screen and (max-width: 400px) {
+  .sliderLabel {
+    padding-left: 0.5em;
+    font-size: 0.7em;
+  }
+}
+
+
+</style>
+<body>
+
+    <h1>Choropleth Map for crime data in usa - <span id="year"></span></h1>
+    <h1><a id="ayear" href="stackedBarChart.html?year=1960">want to see the break-down of the crime data for the year: - <span id="year1"></span></a></h1>
+    <div class="slider-container">
+      <input type="range" min="1960" max="2019" value="1960" id="yearSlider" >
+      <div id="sliderLabels">
+        <span class="sliderLabel" >1960</span>
+        <span class="sliderLabel" >1970</span>
+        <span class="sliderLabel" >1980</span>
+        <span class="sliderLabel" >1990</span>
+        <span class="sliderLabel">2000</span>
+        <span class="sliderLabel" >2010</span>
+        
+      </div>
+    </div>
+    
+    <div>
+    <h3>Non_Voilent Crime:</h3>
+    <div id="map"></div>
+    <h3>Voilent Crime:</h3>
+    <div id ="map_2"></div>
+    </div>
+   
+    
+
+<script>
+// Set the dimensions and margins of the graph
+var width = 600,
+    height = 400;
+
+// Create SVG element
+var svg = d3.select("#map")
+  .append("svg")
+  .attr("width", width)
+  .attr("height", height);
+  var svg2 = d3.select("#map_2")
+  .append("svg")
+  .attr("width", width)
+  .attr("height", height);
+
+// Define map projection
+var projection = d3.geoAlbersUsa()
+  .translate([width/2, height/2])
+  .scale([800]);
+
+// Define path generator
+var path = d3.geoPath()
+  .projection(projection);
+  var path2 = d3.geoPath()
+  .projection(projection);
+
+// Cache DOM elements and references
+var slider = document.getElementById("yearSlider");
+var yearLabel = document.getElementById("year");
+var yearLabel1 = document.getElementById("year1");
+var ayear = document.getElementById("ayear");
+var tooltip = d3.select("body")
+  .append("div")
+  .attr("class", "tooltip")
+  .style("opacity", 0);
+var paths;
+var paths2;
+
+// Load state data and US map data simultaneously
+Promise.all([
+  d3.csv("state_crime.csv"),
+  d3.json("us-states2.json")
+]).then(function(datasets) {
+  var stateData = preprocessData(datasets[0]);
+  var usMapData = datasets[1];
+  var crimeRates = generateCrimeRates(stateData);
+  var voilentCrimeRates = generateVoilentCrimeRates(stateData); // Generate crime rates for all years
+  
+  // Draw the initial map
+  updateMap(1960);
+  
+  // Add event listener to slider
+  slider.addEventListener("input", function() {
+    var year = this.value;
+    updateMap(year);
+  });
+  
+  // Pre-process the state data and store it in an object with state names as keys and an array of crime rates for each year as values
+  function preprocessData(data) {
+  var stateData = {};
+  for (var i = 0; i < data.length; i++) {
+    var state = data[i].State;
+    if (!stateData[state]) {
+      stateData[state] = [];
+    }
+    stateData[state].push({
+      year: +data[i].Year,
+      rate:  +data[i].Rates,
+      voilent_rate: +data[i].Voilent_Rates
+    });
+  }
+  console.log(stateData);
+  return stateData;
+}
+
+function generateCrimeRates(stateData) {
+    var crimeRates = {};
+    var voilentCrimeRates = {}
+    for (var state in stateData) {
+      crimeRates[state] = {};
+      voilentCrimeRates[state] = {};
+      for (var i = 0; i < stateData[state].length; i++) {
+        var year = stateData[state][i].year;
+        var rate = stateData[state][i].rate;
+        var voilent_rate = stateData[state][i].Voilent_Rates;
+        crimeRates[state][year] = rate;
+        voilentCrimeRates[state][year] = voilent_rate
+      }
+    }
+    console.log(voilentCrimeRates);
+    return crimeRates;
+  }
+  function generateVoilentCrimeRates(stateData) {
+    var voilentCrimeRates = {}
+    for (var state in stateData) {
+      voilentCrimeRates[state] = {};
+      for (var i = 0; i < stateData[state].length; i++) {
+        var year = stateData[state][i].year;
+        var voilent_rate = stateData[state][i].voilent_rate;
+        voilentCrimeRates[state][year] = voilent_rate
+      }
+    }
+    console.log(voilentCrimeRates);
+    return voilentCrimeRates;
+  }
+  // Define color scale for crime rates
+
+
+
+        // Update the map with data for the given year
+        function updateMap(year) {
+              var colorScale = d3.scaleLinear()
+              .domain([1000, 7000])
+              .range(["#f7fcf0","#00441b"]);
+              var colorScale2 = d3.scaleLinear()
+                  .domain([0, 900])
+                  .range(["#ffcccc","#990000"]);
+
+        yearLabel.textContent = year;
+        yearLabel1.textContent = year;
+        ayear.href = "stackedBarChart.html?year=" + year;
+        // Generate a dictionary with state names as keys and crime rates as values
+        if (!crimeRates) {
+    crimeRates = generateCrimeRates(stateData);
+  }
+  if(!voilentCrimeRates){
+    voilentCrimeRates = generateVoilentCrimeRates(stateData);
+  }
+   
+// Color the map based on crime rates
+if (!paths) {
+  paths = svg.selectAll("path")
+    .data(usMapData.features)
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .attr("class", "state")
+    .attr("fill", function(d) {
+        // Set the initial color of each state based on its crime rate in the initial year
+        return crimeRates[d.properties.NAME][1960] ? colorScale(crimeRates[d.properties.NAME][1960]) : "white";
+      })
+    .on("mouseover", function(d) {
+      tooltip.transition()
+        .duration(200)
+        .style("opacity", .9);
+      tooltip.html(d.properties.NAME + "<br>" + (crimeRates[d.properties.NAME][yearLabel.textContent] ? crimeRates[d.properties.NAME][yearLabel.textContent] + " per 100,000" : "No data"))
+        .style("left", (d3.event.pageX + 5) + "px")
+        .style("top", (d3.event.pageY - 28) + "px");
+    })
+    .on("mouseout", function(d) {
+      tooltip.transition()
+        .duration(500)
+        .style("opacity", 0);
+    });
+} else {
+  paths.attr("fill", function(d) {
+    return crimeRates[d.properties.NAME][yearLabel.textContent] ? colorScale(crimeRates[d.properties.NAME][yearLabel.textContent]) : "white";
+  });
+}
+if (!paths2) {
+  paths2 = svg2.selectAll("path2")
+    .data(usMapData.features)
+    .enter()
+    .append("path")
+    .attr("d", path2)
+    .attr("class", "state")
+    .attr("fill", function(d) {
+        // Set the initial color of each state based on its crime rate in the initial year
+        return voilentCrimeRates[d.properties.NAME][1960] ? colorScale2(voilentCrimeRates[d.properties.NAME][1960]) : "white";
+      })
+    .on("mouseover", function(d) {
+      tooltip.transition()
+        .duration(200)
+        .style("opacity", .9);
+      tooltip.html(d.properties.NAME + "<br>" + (voilentCrimeRates[d.properties.NAME][yearLabel.textContent] ? voilentCrimeRates[d.properties.NAME][yearLabel.textContent] + " per 100,000" : "No data"))
+        .style("left", (d3.event.pageX + 5) + "px")
+        .style("top", (d3.event.pageY - 28) + "px");
+    })
+    .on("mouseout", function(d) {
+      tooltip.transition()
+        .duration(500)
+        .style("opacity", 0);
+    });
+} else {
+  paths2.attr("fill", function(d) {
+    return voilentCrimeRates[d.properties.NAME][yearLabel.textContent] ? colorScale2(voilentCrimeRates[d.properties.NAME][yearLabel.textContent]) : "white";
+  });
+}
+
+}
+var selectedStates = [];
+paths.on("click", function(d) {
+  var stateName = d.properties.NAME;
+  var index = selectedStates.indexOf(stateName);
+  if (index === -1) {
+    // Add the state to the selectedStates array
+    selectedStates.push(stateName);
+    // Highlight the state
+    d3.select(this).classed("selected", true);
+  } else {
+    // Remove the state from the selectedStates array
+    selectedStates.splice(index, 1);
+    // Un-highlight the state
+    d3.select(this).classed("selected", false);
+  }
+  // Copy the selected state names to the clipboard
+  //copyToClipboard(selectedStates.join(", "));
+});
+paths2.on("click", function(d) {
+  var stateName = d.properties.NAME;
+  var index = selectedStates.indexOf(stateName);
+  if (index === -1) {
+    // Add the state to the selectedStates array
+    selectedStates.push(stateName);
+    // Highlight the state
+    d3.select(this).classed("selected", true);
+  } else {
+    // Remove the state from the selectedStates array
+    selectedStates.splice(index, 1);
+    // Un-highlight the state
+    d3.select(this).classed("selected", false);
+  }
+  // Copy the selected state names to the clipboard
+  //copyToClipboard(selectedStates.join(", "));
+});
+// Add a button to deselect selected states
+var clearButton = d3.select("body")
+  .append("button")
+  .text("Clear Selection")
+  .on("click", function() {
+    console.log(selectedStates);
+    // Clear the selectedStates array
+    selectedStates = [];
+    // Un-highlight all states
+    d3.selectAll(".selected").classed("selected", false);
+    // Copy the empty selection to the clipboard
+    copyToClipboard("");
+  });
+  var lineButton = d3.select("body")
+  .append("button")
+  .text("LineGraph")
+  .on("click", function() {
+    var encodedStates = encodeURIComponent(JSON.stringify(selectedStates));
+    // Construct the URL with the encoded data
+    var url = 'linegraph.html?states=' + encodedStates;
+    // Navigate to the linegraph page with the encoded data in the URL
+    window.location.href = url;
+  });
+
+}).catch(function(error) {
+console.log(error);
+});
+</script>
+
+</body>
+</html>
